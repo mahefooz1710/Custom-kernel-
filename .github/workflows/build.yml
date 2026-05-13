@@ -1,12 +1,11 @@
 name: Build Ultimate Custom Kernel
 
-# Ye aapko "One Click" run button dega
 on:
   workflow_dispatch:
 
 jobs:
   build-kernel:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     
     steps:
       - name: 1. Setup Build Environment
