@@ -11,14 +11,14 @@ jobs:
       - name: 1. Setup Build Environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python3
+          sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 x11proto-core-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python3 libncurses5
 
       - name: 2. Download Kernel Source & Google Clang
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_kernel_xiaomi_sdm660.git -b lineage-18.1 kernel_src
-          # Official AOSP Clang 11 download kar rahe hain compatibility ke liye
+          # AOSP Clang 11 download
           git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b master clang
-          # GCC (for 32-bit/64-bit headers)
+          # GCC Prebuilts
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git -b lineage-18.1 gcc64
           git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git -b lineage-18.1 gcc32
 
@@ -34,11 +34,12 @@ jobs:
           find arch/arm64/boot/dts/qcom/ -name "*.dtsi" -exec sed -i 's/qcom,batt-capacity-mah = <3010>;/qcom,batt-capacity-mah = <15050>;/g' {} +
           find arch/arm64/boot/dts/qcom/ -name "*.dtsi" -exec sed -i 's/qcom,batt-capacity-mah = <3000>;/qcom,batt-capacity-mah = <15050>;/g' {} +
 
-      - name: 4. Compile Kernel (AOSP Standards)
+      - name: 4. Compile Kernel (Modern Environment Fix)
         run: |
           cd kernel_src
           export PATH="$GITHUB_WORKSPACE/clang/clang-r383902/bin:$GITHUB_WORKSPACE/gcc64/bin:$GITHUB_WORKSPACE/gcc32/bin:$PATH"
           make O=out ARCH=arm64 sdm660_defconfig
+          # KBUILD_CFLAGS mein -no-integrated-as add karna pad sakta hai agar assembler error de
           make O=out -j$(nproc --all) ARCH=arm64 \
               CC=clang \
               CLANG_TRIPLE=aarch64-linux-gnu- \
