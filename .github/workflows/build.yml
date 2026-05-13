@@ -13,37 +13,40 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y git ccache automake flex lzop bison gperf build-essential zip curl zlib1g-dev g++-multilib libxml2-utils bzip2 libbz2-dev libbz2-1.0 libghc-bzlib-dev squashfs-tools pngcrush schedtool dpkg-dev liblz4-tool make optipng maven libssl-dev pwgen libswitch-perl policycoreutils minicom libxml-sax-base-perl libxml-simple-perl bc libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z-dev libgl1-mesa-dev xsltproc unzip device-tree-compiler python3
 
-      - name: 2. Download Kernel Source & Toolchain
+      - name: 2. Download Kernel Source & Google Clang
         run: |
           git clone --depth=1 https://github.com/LineageOS/android_kernel_xiaomi_sdm660.git -b lineage-18.1 kernel_src
-          git clone --depth=1 https://github.com/kdrag0n/proton-clang.git toolchain
+          # Official AOSP Clang 11 download kar rahe hain compatibility ke liye
+          git clone --depth=1 https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86 -b master clang
+          # GCC (for 32-bit/64-bit headers)
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git -b lineage-18.1 gcc64
+          git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9.git -b lineage-18.1 gcc32
 
-      - name: 3. Apply Hardware Mods (15050mAh, F2FS, ZRAM, Performance)
+      - name: 3. Apply Hardware Mods (15050mAh, F2FS, ZRAM)
         run: |
           cd kernel_src
           DEFCONFIG="arch/arm64/configs/sdm660_defconfig"
-          
-          # F2FS & ZRAM Enhancements
           sed -i 's/# CONFIG_F2FS_FS is not set/CONFIG_F2FS_FS=y\nCONFIG_F2FS_STAT_FS=y\nCONFIG_F2FS_FS_XATTR=y\nCONFIG_F2FS_FS_POSIX_ACL=y/g' $DEFCONFIG
           sed -i 's/# CONFIG_ZRAM is not set/CONFIG_ZRAM=y\nCONFIG_ZRAM_LZ4_COMPRESS=y\nCONFIG_CRYPTO_LZ4=y/g' $DEFCONFIG
-          
-          # Speed Schedulers
           echo "CONFIG_IOSCHED_MAPLE=y" >> $DEFCONFIG
           echo "CONFIG_IOSCHED_ZEN=y" >> $DEFCONFIG
           echo "CONFIG_IOSCHED_FIOPS=y" >> $DEFCONFIG
-          
-          # 15050mAh Battery Sync
           find arch/arm64/boot/dts/qcom/ -name "*.dtsi" -exec sed -i 's/qcom,batt-capacity-mah = <3010>;/qcom,batt-capacity-mah = <15050>;/g' {} +
           find arch/arm64/boot/dts/qcom/ -name "*.dtsi" -exec sed -i 's/qcom,batt-capacity-mah = <3000>;/qcom,batt-capacity-mah = <15050>;/g' {} +
 
-      - name: 4. Compile Kernel
+      - name: 4. Compile Kernel (AOSP Standards)
         run: |
           cd kernel_src
-          export PATH="$GITHUB_WORKSPACE/toolchain/bin:$PATH"
+          export PATH="$GITHUB_WORKSPACE/clang/clang-r383902/bin:$GITHUB_WORKSPACE/gcc64/bin:$GITHUB_WORKSPACE/gcc32/bin:$PATH"
           make O=out ARCH=arm64 sdm660_defconfig
-          make O=out -j$(nproc --all) ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip LLVM=1 LLVM_IAS=1
+          make O=out -j$(nproc --all) ARCH=arm64 \
+              CC=clang \
+              CLANG_TRIPLE=aarch64-linux-gnu- \
+              CROSS_COMPILE=aarch64-linux-android- \
+              CROSS_COMPILE_ARM32=arm-linux-androideabi- \
+              LD=ld.lld
 
-      - name: 5. Pack Final ZIP with AnyKernel3 (A-only Setup)
+      - name: 5. Pack Final ZIP
         run: |
           git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
           cd AnyKernel3
